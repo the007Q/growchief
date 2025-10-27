@@ -103,7 +103,7 @@ services:
     networks:
       - temporal-network
     volumes:
-      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
+      - /data/coolify/applications/zks8gss4880cwg40g0g404c4/dynamicconfig:/etc/temporal/config/dynamicconfig
     labels:
       kompose.volume.type: configMap
 
