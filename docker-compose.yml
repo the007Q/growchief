@@ -95,17 +95,12 @@ services:
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=temporal-postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development-sql.yaml
       - ENABLE_ES=true
       - ES_SEEDS=temporal-elasticsearch
       - ES_VERSION=v7
       - TEMPORAL_NAMESPACE=default
     networks:
       - temporal-network
-    volumes:
-      - /data/coolify/applications/zks8gss4880cwg40g0g404c4/dynamicconfig:/etc/temporal/config/dynamicconfig
-    labels:
-      kompose.volume.type: configMap
 
   temporal-admin-tools:
     container_name: temporal-admin-tools
