@@ -3,46 +3,50 @@ services:
   # Growchief Application
   # -----------------------
   growchief:
-    image: ghcr.io/growchief/growchief:latest
+    build: .  # BUILD FROM YOUR FORK instead of using broken image
     container_name: growchief
     restart: always
     environment:
-      DATABASE_URL: "postgresql://growchief-user:growchief-password@growchief-postgres:5432/growchief-db-local"
-      STORAGE_PROVIDER: "local"
-      UPLOAD_DIRECTORY: "/uploads"
-      NEXT_PUBLIC_UPLOAD_DIRECTORY: "/uploads"
-      AUTH_SECRET: "YourSpecialString!@#111"
-      GOOGLE_CLIENT_ID: "For Login With Google Client ID"
-      GOOGLE_CLIENT_SECRET: "For Login With Google Client Secret"
-      TEMPORAL_ADDRESS: "temporal:7233"
-      APOLLO_API_KEY: ""
-      DATAGMA_API_KEY: ""
+      DATABASE_URL: postgresql://${GROWCHIEF_POSTGRES_USER}:${GROWCHIEF_POSTGRES_PASSWORD}@growchief-postgres:5432/${GROWCHIEF_POSTGRES_DB}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      UPLOAD_DIRECTORY: ${UPLOAD_DIRECTORY:-/uploads}
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: ${NEXT_PUBLIC_UPLOAD_DIRECTORY:-/uploads}
+      AUTH_SECRET: ${AUTH_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      APOLLO_API_KEY: ${APOLLO_API_KEY:-}
+      DATAGMA_API_KEY: ${DATAGMA_API_KEY:-}
     volumes:
       - growchief-config:/config/
       - growchief-uploads:/uploads/
-    ports:
-      - "5002:5000"
     networks:
       - growchief-network
       - temporal-network
     depends_on:
       growchief-postgres:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.growchief.rule=Host(`growchief.quontumm.com`)
+      - traefik.http.routers.growchief.entrypoints=https
+      - traefik.http.routers.growchief.tls=true
+      - traefik.http.services.growchief.loadbalancer.server.port=5000
 
   growchief-postgres:
     image: postgres:16
     container_name: growchief-postgres
     restart: always
     environment:
-      POSTGRES_PASSWORD: growchief-password
-      POSTGRES_USER: growchief-user
-      POSTGRES_DB: growchief-db-local
+      POSTGRES_PASSWORD: ${GROWCHIEF_POSTGRES_PASSWORD}
+      POSTGRES_USER: ${GROWCHIEF_POSTGRES_USER}
+      POSTGRES_DB: ${GROWCHIEF_POSTGRES_DB}
     volumes:
       - postgres-volume:/var/lib/postgresql/data
     networks:
       - growchief-network
     healthcheck:
-      test: pg_isready -U growchief-user -d growchief-db-local
+      test: pg_isready -U ${GROWCHIEF_POSTGRES_USER} -d ${GROWCHIEF_POSTGRES_DB}
       interval: 10s
       timeout: 3s
       retries: 3
@@ -66,25 +70,23 @@ services:
     expose:
       - 9200
     volumes:
-      - /var/lib/elasticsearch/data
+      - elasticsearch-data:/var/lib/elasticsearch/data
 
   temporal-postgresql:
     container_name: temporal-postgresql
     image: postgres:16
     environment:
-      POSTGRES_PASSWORD: temporal
-      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD}
+      POSTGRES_USER: ${TEMPORAL_POSTGRES_USER}
     networks:
       - temporal-network
     expose:
       - 5432
     volumes:
-      - /var/lib/postgresql/data
+      - temporal-postgres-data:/var/lib/postgresql/data
 
   temporal:
     container_name: temporal
-    ports:
-      - "7233:7233"
     image: temporalio/auto-setup:1.28.1
     depends_on:
       - temporal-postgresql
@@ -92,8 +94,8 @@ services:
     environment:
       - DB=postgres12
       - DB_PORT=5432
-      - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
+      - POSTGRES_USER=${TEMPORAL_POSTGRES_USER}
+      - POSTGRES_PWD=${TEMPORAL_POSTGRES_PASSWORD}
       - POSTGRES_SEEDS=temporal-postgresql
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
       - ENABLE_ES=true
@@ -102,34 +104,25 @@ services:
       - TEMPORAL_NAMESPACE=default
     networks:
       - temporal-network
-    volumes:
-      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
-    labels:
-      kompose.volume.type: configMap
-
-  temporal-admin-tools:
-    container_name: temporal-admin-tools
-    image: temporalio/admin-tools:1.28.1-tctl-1.18.4-cli-1.4.1
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
-    networks:
-      - temporal-network
-    stdin_open: true
-    depends_on:
-      - temporal
-    tty: true
+    expose:
+      - 7233
 
   temporal-ui:
     container_name: temporal-ui
     image: temporalio/ui:2.34.0
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://127.0.0.1:3000
+      - TEMPORAL_CORS_ORIGINS=https://growchief.quontumm.com
     networks:
       - temporal-network
-    ports:
-      - "8080:8080"
+    depends_on:
+      - temporal
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.temporal-ui.rule=Host(`temporal.quontumm.com`)
+      - traefik.http.routers.temporal-ui.entrypoints=https
+      - traefik.http.routers.temporal-ui.tls=true
+      - traefik.http.services.temporal-ui.loadbalancer.server.port=8080
 
 # -----------------------
 # Volumes
@@ -141,6 +134,10 @@ volumes:
     external: false
   growchief-uploads:
     external: false
+  elasticsearch-data:
+    external: false
+  temporal-postgres-data:
+    external: false
 
 # -----------------------
 # Networks
@@ -150,4 +147,4 @@ networks:
     external: false
   temporal-network:
     driver: bridge
-    name: temporal-network
+```
