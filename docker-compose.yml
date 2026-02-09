@@ -99,7 +99,6 @@ services:
       - POSTGRES_USER=${TEMPORAL_POSTGRES_USER}
       - POSTGRES_PWD=${TEMPORAL_POSTGRES_PASSWORD}
       - POSTGRES_SEEDS=temporal-postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
       - ENABLE_ES=true
       - ES_SEEDS=temporal-elasticsearch
       - ES_VERSION=v7
