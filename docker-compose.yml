@@ -106,6 +106,7 @@ services:
       - TEMPORAL_NAMESPACE=default
     networks:
       - temporal-network
+      - growchief-network
     expose:
       - 7233
 
